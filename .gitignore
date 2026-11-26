@@ -1,0 +1,13 @@
+# 令牌、密码、环境文件一律不进仓库
+.env
+.env.*
+*.token
+*token*.txt
+*.pem
+*.key
+# 打包产物
+*.zip
+dist/
+node_modules/
+__pycache__/
+.DS_Store
