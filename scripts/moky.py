@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""蒙奇游戏开发者命令行工具（只用 Python 3 标准库）。
+"""蒙奇大陆开发者命令行工具（只用 Python 3 标准库）。
 
 用法（先设置令牌：export MOKY_TOKEN="$(python3 scripts/moky.py token)"）：
 
@@ -81,7 +81,7 @@ def upload_cover(path):
 
 
 def cmd_token(a):
-    phone = input("蒙奇游戏账号的手机号：") if sys.stdin.isatty() else sys.stdin.readline().strip()
+    phone = input("蒙奇大陆账号的手机号：") if sys.stdin.isatty() else sys.stdin.readline().strip()
     password = getpass.getpass("密码（不会显示）：") if sys.stdin.isatty() else sys.stdin.readline().rstrip("\n")
     j = need_ok(*call("/auth/token", {"phone": phone.strip(), "password": password}, auth=False), "获取令牌")
     print(f"令牌 {j['expires_in'] // 86400} 天内有效。", file=sys.stderr)
@@ -202,7 +202,7 @@ def cmd_remove(a):
 
 
 def main():
-    ap = argparse.ArgumentParser(description="蒙奇游戏开发者命令行工具", formatter_class=argparse.RawDescriptionHelpFormatter, epilog=__doc__)
+    ap = argparse.ArgumentParser(description="蒙奇大陆开发者命令行工具", formatter_class=argparse.RawDescriptionHelpFormatter, epilog=__doc__)
     sub = ap.add_subparsers(dest="cmd", required=True)
     sub.add_parser("token").set_defaults(f=cmd_token)
     sub.add_parser("status").set_defaults(f=cmd_status)

@@ -2,7 +2,7 @@
 
 **English** | [中文](README.md)
 
-Moky Games (蒙奇游戏) is a free directory of AI-made browser games. If you built a web game with AI, you can list it here for free and get it in front of more players.
+Moky Games (蒙奇大陆) is a free directory of AI-made browser games. If you built a web game with AI, you can list it here for free and get it in front of more players.
 
 - Website: https://moky.com.cn (Chinese)
 - This repository is written for developers and their **AI coding assistants** (Claude Code, Codex, and others). It holds the full integration guides, a ready-to-run command-line tool, and the platform terms.
@@ -17,7 +17,7 @@ Accounts need a mainland China mobile number, and the website and guides are in 
 2. The game is listed on the platform (two paths, see below). Listing is free.
 3. A newly listed game is **private**: it is not shown on the home page, and the developer shares the link or QR code with friends. Players sign in with a Moky Games account before they can play.
 4. **After 20 players have played it** (the developer does not count), the game appears automatically under "New" (新品) on the home page.
-5. The developer opens "个人中心" (My account) at the top right of the website to see status and player count, and to share or remove games.
+5. The developer opens "创作中心" (Creator Center) at the top right of the website to see status and player count, and to share or remove games.
 
 ## Which path to take
 
@@ -146,7 +146,7 @@ Rules shared by both paths:
 
 - Up to 5 games per account (both paths combined). List a game through one path only, not both.
 - A new listing is private and players sign in to play; after 20 players have played it (the developer does not count) it appears automatically under "New" (新品) on the home page.
-- Status, player count, share QR code and removal: "个人中心" (My account) at the top right of the website. Linked games are under 「链接的游戏」, cloud-deployed games under 「云部署的游戏」.
+- Status, player count, share QR code and removal: "创作中心" (Creator Center) at the top right of the website. Linked games are under 「链接的游戏」, cloud-deployed games under 「云部署的游戏」.
 - Removing by command: `python3 scripts/moky.py remove <name> --yes`. Removal makes the game address stop working at once, so get the user's explicit consent first.
 
 ## Command-line tool
