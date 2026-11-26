@@ -21,33 +21,45 @@
 
 | 你的情况 | 走哪条路 | 指引 |
 |---|---|---|
-| 游戏已经放在你自己的网站上，有一个能直接玩的链接 | **提交链接收录**：在游戏页面里加一行登录脚本，然后提交链接 | [`docs/integrate.md`](docs/integrate.md) |
+| 游戏已经放在你自己的网站上，有一个能直接玩的链接 | **提交链接收录**：在网站上放一个小文件（不改游戏代码），然后提交链接 | [`docs/integrate.md`](docs/integrate.md) |
 | 只有游戏文件，没有自己的网站 | **免费云部署**：把游戏打包上传，由平台托管 | [`docs/deploy.md`](docs/deploy.md) |
 
 两条路二选一。不管哪条，游戏都必须是**网页游戏**（浏览器里打开就能玩）。
 
-### 提交链接收录（外链游戏）
+### 提交链接收录（游戏在你自己的网站上）
 
-游戏留在你自己的网站上。你需要做两件事：
+游戏留在你自己的网站上，有两种方式，默认用 A：
 
-1. 在游戏入口页的 `<head>` 里加一行脚本（密钥向平台领取，每个链接一把）：
+**方式 A：嵌入（不改游戏代码）**
 
-   ```html
-   <script src="https://clawapps.cn/sdk/moky.js" data-game="你的接入密钥"></script>
-   ```
+1. 向平台领取一把接入密钥（每个链接一把）。
+2. 把密钥写进一个名为 `moky-verify.txt` 的文本文件，放到游戏入口页所在的目录并发布。这证明网站是你的。
+3. 选一个网址名，提交。
 
-2. 让游戏等登录完成再开始：
+收录后，玩家打开的是统一地址 `https://clawapps.cn/play/<网址名>/`：这是平台的页面，玩家登录后把你的游戏嵌在里面。游戏代码一行都不用改，自己的存档和接口照常可用。前提是你的网站没有禁止被别的网站嵌入（没有 `X-Frame-Options`，或 `frame-ancestors` 放行了 `https://clawapps.cn`）；提交时平台会检查，不满足会明确告诉你。
 
-   ```js
-   if (window.Moky) {
-     Moky.onReady(function (player) {
-       // player.id：这位玩家在你这款游戏里的固定匿名编号
-       startGame(player);
-     });
-   }
-   ```
+**方式 B：接入登录脚本**
 
-提交时，平台会当场打开你的链接，检查页面里有没有带着你那把密钥的登录脚本。有，就说明链接确实是你的、登录也接好了，游戏立即收录。完整步骤、注意事项和出错对照见 [`docs/integrate.md`](docs/integrate.md)，可运行的例子见 [`examples/minimal-game/`](examples/minimal-game/)。
+网站禁止被嵌入，或者你想在游戏里拿到玩家编号（做排行榜等）时用。在游戏入口页的 `<head>` 里加一行脚本：
+
+```html
+<script src="https://clawapps.cn/sdk/moky.js" data-game="你的接入密钥"></script>
+```
+
+并让游戏等登录完成再开始：
+
+```js
+if (window.Moky) {
+  Moky.onReady(function (player) {
+    // player.id：这位玩家在你这款游戏里的固定匿名编号
+    startGame(player);
+  });
+}
+```
+
+玩家仍然打开你自己的地址，页面上会先出现「登录后开始玩」的遮罩。
+
+两种方式提交时，平台都会当场访问你的网站做检查（A 查归属文件和能否嵌入，B 查页面里的登录脚本），通过就立即收录。完整步骤、注意事项和出错对照见 [`docs/integrate.md`](docs/integrate.md)；方式 B 的可运行例子见 [`examples/minimal-game/`](examples/minimal-game/)。
 
 ### 免费云部署
 
@@ -61,10 +73,15 @@
 # 0. 用蒙奇游戏账号换令牌（7 天有效）。令牌只放在环境变量里。
 export MOKY_TOKEN="$(python3 scripts/moky.py token)"
 
-# 提交链接收录
-python3 scripts/moky.py key https://games.example.com/star-catch/        # 领取接入密钥和那一行脚本
-#   ……把脚本加进游戏、按 docs/integrate.md 改好、重新发布到你的网站……
-python3 scripts/moky.py check https://games.example.com/star-catch/ mk0123456789abcdef   # 自检
+# 提交链接收录 · 方式 A 嵌入（默认，不改游戏代码）
+python3 scripts/moky.py key https://games.example.com/star-catch/        # 领取接入密钥
+echo 'mk0123456789abcdef' > moky-verify.txt                              # 放到游戏目录，重新发布你的网站
+python3 scripts/moky.py check https://games.example.com/star-catch/ mk0123456789abcdef --mode frame   # 自检
+python3 scripts/moky.py submit --key mk0123456789abcdef --mode frame --name star-catch --title 接星星 \
+    --intro '接住落下的星星，别碰到陨石。' --cat 休闲 --cover cover.png
+
+# 提交链接收录 · 方式 B 登录脚本（把 key 命令给出的那一行脚本加进页面并发布之后）
+python3 scripts/moky.py check https://games.example.com/star-catch/ mk0123456789abcdef
 python3 scripts/moky.py submit --key mk0123456789abcdef --title 接星星 \
     --intro '接住落下的星星，别碰到陨石。' --cat 休闲 --cover cover.png
 
@@ -92,11 +109,11 @@ python3 scripts/moky.py status
 
 | 路径 | 内容 |
 |---|---|
-| [`docs/integrate.md`](docs/integrate.md) | 外链游戏接入登录并提交收录的完整指引 |
+| [`docs/integrate.md`](docs/integrate.md) | 提交游戏链接收录的完整指引（方式 A 嵌入、方式 B 登录脚本） |
 | [`docs/deploy.md`](docs/deploy.md) | 免费云部署的完整指引 |
 | [`scripts/moky.py`](scripts/moky.py) | 命令行工具 |
-| [`examples/minimal-game/`](examples/minimal-game/) | 已接好登录的最小示例游戏 |
-| [`sdk/moky.js`](sdk/moky.js) | 登录脚本的源码，供阅读。**接入时请引用线上地址 `https://clawapps.cn/sdk/moky.js`，不要拷贝这个文件**（平台只认线上地址） |
+| [`examples/minimal-game/`](examples/minimal-game/) | 方式 B 的示例：已接好登录脚本的最小游戏 |
+| [`sdk/moky.js`](sdk/moky.js) | 方式 B 用的登录脚本的源码，供阅读。**接入时请引用线上地址 `https://clawapps.cn/sdk/moky.js`，不要拷贝这个文件**（平台只认线上地址） |
 | [`legal/terms.md`](legal/terms.md) | 用户协议 |
 | [`legal/privacy.md`](legal/privacy.md) | 隐私政策 |
 
@@ -114,7 +131,7 @@ python3 scripts/moky.py status
 上架即表示同意 [用户协议](legal/terms.md) 和 [隐私政策](legal/privacy.md)。要点：
 
 - 你要对自己的游戏拥有合法权利，内容不得违法、侵权或泄露他人隐私。
-- 游戏违法违规、被投诉且有初步证据、存在安全风险，或登录脚本被去掉、被绕过时，平台有权下架。
+- 游戏违法违规、被投诉且有初步证据、存在安全风险，或归属文件 / 登录脚本被去掉、登录被绕过时，平台有权下架。
 - 平台目前免费提供，不保证服务不中断。
 
 ## 联系我们

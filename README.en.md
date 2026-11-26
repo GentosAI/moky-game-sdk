@@ -23,33 +23,45 @@ Accounts need a mainland China mobile number, and the website and guides are in 
 
 | Your situation | Path | Guide |
 |---|---|---|
-| The game is already on your own website and has a playable URL | **Submit a link**: add one login script line to the game page, then submit the URL | [`docs/integrate.md`](docs/integrate.md) |
+| The game is already on your own website and has a playable URL | **Submit a link**: put one small file on your site (no game code changes), then submit the URL | [`docs/integrate.md`](docs/integrate.md) |
 | You only have the game files and no website | **Free cloud deploy**: upload a zip and let the platform host it | [`docs/deploy.md`](docs/deploy.md) |
 
 Pick one. Either way it has to be a **web game** that runs in the browser.
 
-### Submit a link (self-hosted game)
+### Submit a link (the game is on your own website)
 
-The game stays on your site. You do two things:
+The game stays on your site. There are two ways; A is the default.
 
-1. Add one script line to the `<head>` of the game's entry page (the key comes from the platform, one per URL):
+**Way A: embed (no changes to the game code)**
 
-   ```html
-   <script src="https://clawapps.cn/sdk/moky.js" data-game="YOUR_KEY"></script>
-   ```
+1. Get an integration key from the platform (one per URL).
+2. Write the key into a text file named `moky-verify.txt`, put it in the directory of the game's entry page, and redeploy. This proves the site is yours.
+3. Pick a URL name and submit.
 
-2. Start the game only after sign-in completes:
+Players then open one unified address, `https://clawapps.cn/play/<name>/`. That page belongs to the platform; after sign-in it shows your game embedded inside it. You change no game code, and your own saves and APIs keep working. The one requirement is that your site does not forbid being embedded by other sites (no `X-Frame-Options`, or a `frame-ancestors` that allows `https://clawapps.cn`). The platform checks this when you submit and tells you plainly if it fails.
 
-   ```js
-   if (window.Moky) {
-     Moky.onReady(function (player) {
-       // player.id: a stable anonymous id for this player in your game
-       startGame(player);
-     });
-   }
-   ```
+**Way B: add the login script**
 
-When you submit, the platform fetches your URL and checks that the HTML contains the login script with your key. That proves the URL is yours and the login is wired in, and the game is listed at once. Full steps, caveats and an error table are in [`docs/integrate.md`](docs/integrate.md); a runnable example is in [`examples/minimal-game/`](examples/minimal-game/).
+Use this when your site forbids embedding, or when you want the player id inside the game (leaderboards and so on). Add one script line to the `<head>` of the game's entry page:
+
+```html
+<script src="https://clawapps.cn/sdk/moky.js" data-game="YOUR_KEY"></script>
+```
+
+and start the game only after sign-in completes:
+
+```js
+if (window.Moky) {
+  Moky.onReady(function (player) {
+    // player.id: a stable anonymous id for this player in your game
+    startGame(player);
+  });
+}
+```
+
+Players keep opening your own URL, and a "sign in to play" overlay appears first.
+
+Either way, when you submit, the platform visits your site and checks it (A: the proof file and whether the page may be embedded; B: the login script in the HTML). If the check passes the game is listed at once. Full steps, caveats and an error table are in [`docs/integrate.md`](docs/integrate.md); a runnable example of Way B is in [`examples/minimal-game/`](examples/minimal-game/).
 
 ### Free cloud deploy
 
@@ -63,10 +75,15 @@ Hand the platform your built static files (an `index.html` at the root, relative
 # 0. Exchange your Moky Games account for a token (valid 7 days). Keep it in an environment variable only.
 export MOKY_TOKEN="$(python3 scripts/moky.py token)"
 
-# Submit a link
-python3 scripts/moky.py key https://games.example.com/star-catch/        # get the key and the script line
-#   ... add the script to the game as described in docs/integrate.md, then redeploy your site ...
-python3 scripts/moky.py check https://games.example.com/star-catch/ mk0123456789abcdef   # self-check
+# Submit a link, Way A: embed (default, no game code changes)
+python3 scripts/moky.py key https://games.example.com/star-catch/        # get the integration key
+echo 'mk0123456789abcdef' > moky-verify.txt                              # put it in the game directory, redeploy your site
+python3 scripts/moky.py check https://games.example.com/star-catch/ mk0123456789abcdef --mode frame   # self-check
+python3 scripts/moky.py submit --key mk0123456789abcdef --mode frame --name star-catch --title 接星星 \
+    --intro '接住落下的星星，别碰到陨石。' --cat 休闲 --cover cover.png
+
+# Submit a link, Way B: login script (after adding the script line printed by `key` and redeploying)
+python3 scripts/moky.py check https://games.example.com/star-catch/ mk0123456789abcdef
 python3 scripts/moky.py submit --key mk0123456789abcdef --title 接星星 \
     --intro '接住落下的星星，别碰到陨石。' --cat 休闲 --cover cover.png
 
@@ -94,11 +111,11 @@ You can also skip the tool and call the API with the `curl` commands in the guid
 
 | Path | Contents |
 |---|---|
-| [`docs/integrate.md`](docs/integrate.md) | Full guide: add the login to a self-hosted game and submit its URL (Chinese) |
+| [`docs/integrate.md`](docs/integrate.md) | Full guide: submit the URL of a self-hosted game, Way A (embed) and Way B (login script) (Chinese) |
 | [`docs/deploy.md`](docs/deploy.md) | Full guide: free cloud deploy (Chinese) |
 | [`scripts/moky.py`](scripts/moky.py) | Command-line tool |
-| [`examples/minimal-game/`](examples/minimal-game/) | A minimal game with the login already wired in |
-| [`sdk/moky.js`](sdk/moky.js) | Source of the login script, for reading. **When integrating, load it from `https://clawapps.cn/sdk/moky.js`; do not copy this file** (the platform only accepts the hosted URL) |
+| [`examples/minimal-game/`](examples/minimal-game/) | Example for Way B: a minimal game with the login script wired in |
+| [`sdk/moky.js`](sdk/moky.js) | Source of the Way B login script, for reading. **When integrating, load it from `https://clawapps.cn/sdk/moky.js`; do not copy this file** (the platform only accepts the hosted URL) |
 | [`legal/terms.md`](legal/terms.md) | Terms of service (Chinese) |
 | [`legal/privacy.md`](legal/privacy.md) | Privacy policy (Chinese) |
 
@@ -116,7 +133,7 @@ Hosted copies of the guides (kept in sync with this repo): https://clawapps.cn/i
 Listing a game means you accept the [terms of service](legal/terms.md) and the [privacy policy](legal/privacy.md). In short:
 
 - You must hold the rights to your game, and its content must not be illegal, infringing, or leak other people's private data.
-- The platform may take a game down if it breaks the law or the terms, if it receives a complaint with initial evidence, if there is a security risk, or if the login script is removed or bypassed.
+- The platform may take a game down if it breaks the law or the terms, if it receives a complaint with initial evidence, if there is a security risk, or if the proof file or login script is removed, or sign-in is bypassed.
 - The service is free for now and comes with no uptime guarantee.
 
 ## Contact

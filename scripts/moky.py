@@ -7,9 +7,13 @@
   python3 scripts/moky.py status                    列出我的游戏、状态和玩家数
   python3 scripts/moky.py cover <图片>              上传封面，输出一次性的封面凭证
 
-  外链游戏（游戏在你自己的网站上，见 docs/integrate.md）：
-  python3 scripts/moky.py key <游戏链接>            领取接入密钥和要放进页面的那一行脚本
-  python3 scripts/moky.py check <游戏链接> <密钥>   自检：线上页面里有没有带这把密钥的登录脚本
+  提交游戏链接收录（游戏在你自己的网站上，见 docs/integrate.md）：
+  python3 scripts/moky.py key <游戏链接>            领取接入密钥
+  方式 A 嵌入（默认，不改游戏代码）：把密钥写进 moky-verify.txt 放到游戏目录并发布，然后
+  python3 scripts/moky.py check <游戏链接> <密钥> --mode frame       自检：归属文件在不在、网站是否允许被嵌入
+  python3 scripts/moky.py submit --key <密钥> --mode frame --name <网址名> --title <名称> --intro <介绍> --cat <分类> [--cover <图片>]
+  方式 B 登录脚本：把 key 命令给出的那一行脚本加进页面并发布，然后
+  python3 scripts/moky.py check <游戏链接> <密钥>                    自检：页面里有没有带这把密钥的登录脚本
   python3 scripts/moky.py submit --key <密钥> --title <名称> --intro <介绍> --cat <分类> [--cover <图片>]
 
   免费云部署（把游戏文件交给平台托管，见 docs/deploy.md）：
@@ -94,7 +98,7 @@ def cmd_status(a):
     if not j["games"]:
         print("还没有游戏。")
     for g in j["games"]:
-        kind = "外链" if g.get("kind") == "link" else "云部署"
+        kind = {"link": "链接·登录脚本", "frame": "链接·嵌入"}.get(g.get("kind"), "云部署")
         vis = "已在首页展示" if g.get("public") else f"私有，{g.get('players', 0)}/{g.get('public_min', 20)} 位玩家"
         err = f"　错误：{g['error']}" if g.get("error") else ""
         print(f"{g['name']}\t{g['title']}\t{kind}\t{g['status']}\t{vis}\t{g.get('url') or ''}{err}")
@@ -106,7 +110,8 @@ def cmd_cover(a):
 
 def cmd_key(a):
     j = need_ok(*call("/sites/key", {"url": a.url}), "领取接入密钥")
-    print(f"接入密钥：{j['key']}\n登记的地址：{j['url']}\n把下面这一行放进游戏入口页的 <head>（必须直接写在 HTML 源码里）：\n\n{j['snippet']}\n")
+    proof = urllib.parse.urljoin(j["url"], "moky-verify.txt")
+    print(f"接入密钥：{j['key']}\n登记的地址：{j['url']}\n\n方式 A 嵌入（默认，不改游戏代码）：把密钥写进一个文本文件，放到游戏目录并发布，使它能通过这个地址访问：\n  {proof}\n\n方式 B 登录脚本：把下面这一行放进游戏入口页的 <head>（必须直接写在 HTML 源码里）：\n  {j['snippet']}\n")
 
 
 def find_keys(html_text):
@@ -119,7 +124,30 @@ def find_keys(html_text):
     return keys
 
 
+def check_frame(a):
+    proof = urllib.parse.urljoin(a.url, "moky-verify.txt")
+    try:
+        text = urllib.request.urlopen(urllib.request.Request(proof, headers={"User-Agent": "moky-game-sdk/1"}), timeout=15).read(4096).decode("utf-8", "replace")
+    except (urllib.error.URLError, ValueError) as e:
+        die(f"没通过：归属文件打不开 {proof}：{e}", 2)
+    if a.key not in text.split():
+        die(f"没通过：{proof} 里的内容不是这把密钥。", 2)
+    try:
+        h = urllib.request.urlopen(urllib.request.Request(a.url, headers={"User-Agent": "moky-game-sdk/1"}), timeout=15).headers
+    except (urllib.error.URLError, ValueError) as e:
+        die(f"打不开 {a.url}：{e}", 2)
+    xfo = (h.get("X-Frame-Options") or "").strip().lower()
+    m = re.search(r"frame-ancestors([^;]*)", h.get("Content-Security-Policy") or "", flags=re.I)
+    if xfo in ("deny", "sameorigin") or xfo.startswith("allow-from"):
+        die(f"没通过：网站用 X-Frame-Options: {xfo} 禁止被嵌入。去掉这个响应头，或改用方式 B（登录脚本）。", 2)
+    if m and not any(x in ("*", "https:", "https://clawapps.cn") for x in m.group(1).lower().split()):
+        die(f"没通过：网站的 frame-ancestors 没有放行 https://clawapps.cn（现在是：{m.group(1).strip()}）。加上它，或改用方式 B。", 2)
+    print("通过：归属文件正确，网站允许被嵌入，可以用 --mode frame 提交了。")
+
+
 def cmd_check(a):
+    if a.mode == "frame":
+        return check_frame(a)
     try:
         r = urllib.request.urlopen(urllib.request.Request(a.url, headers={"User-Agent": "moky-game-sdk/1"}), timeout=15)
         text = r.read(512 * 1024).decode("utf-8", "replace")
@@ -146,10 +174,14 @@ def check_fields(a):
 def cmd_submit(a):
     check_fields(a)
     body = {"key": a.key, "title": a.title, "intro": a.intro, "cat": a.cat}
+    if a.mode == "frame":
+        if not a.name or not re.fullmatch(r"[a-z][a-z0-9-]{2,30}", a.name):
+            die("方式 A 需要 --name <网址名>：小写字母开头，3–31 位，只含小写字母、数字、连字符")
+        body.update(mode="frame", name=a.name)
     if a.cover:
         body["cover"] = upload_cover(a.cover)
     j = need_ok(*call("/sites/submit", body), "提交")
-    print(f"已上架：{j['name']}　{j['url']}\n现在是私有状态；有 {j.get('public_min', 20)} 位玩家玩过之后会出现在首页的「新品」里。")
+    print(f"已收录：{j['name']}　{j['url']}\n现在是私有状态；有 {j.get('public_min', 20)} 位玩家玩过之后会出现在首页的「新品」里。")
 
 
 def make_zip(root):
@@ -209,13 +241,13 @@ def main():
     sub.add_parser("status").set_defaults(f=cmd_status)
     p = sub.add_parser("cover"); p.add_argument("image"); p.set_defaults(f=cmd_cover)
     p = sub.add_parser("key"); p.add_argument("url"); p.set_defaults(f=cmd_key)
-    p = sub.add_parser("check"); p.add_argument("url"); p.add_argument("key"); p.set_defaults(f=cmd_check)
+    p = sub.add_parser("check"); p.add_argument("url"); p.add_argument("key"); p.add_argument("--mode", choices=["script", "frame"], default="script"); p.set_defaults(f=cmd_check)
     for name, f in (("submit", cmd_submit), ("deploy", cmd_deploy)):
         p = sub.add_parser(name)
         if name == "deploy":
             p.add_argument("dir"); p.add_argument("--name", required=True)
         else:
-            p.add_argument("--key", required=True)
+            p.add_argument("--key", required=True); p.add_argument("--mode", choices=["script", "frame"], default="script"); p.add_argument("--name")
         p.add_argument("--title", required=True); p.add_argument("--intro", required=True); p.add_argument("--cat", required=True); p.add_argument("--cover")
         p.set_defaults(f=f)
     p = sub.add_parser("remove"); p.add_argument("name"); p.add_argument("--yes", action="store_true"); p.set_defaults(f=cmd_remove)
