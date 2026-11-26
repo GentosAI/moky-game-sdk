@@ -28,7 +28,7 @@ Accounts need a mainland China mobile number, and the website and guides are in 
 
 Pick one. Either way it has to be a **web game** that runs in the browser.
 
-> **For AI coding assistants:** when the user's instruction says 「收录的方式」 ("the listing way"), it means the first path (submit a link, read [`docs/integrate.md`](docs/integrate.md)). When it says 「云部署的方式」 ("the cloud-deploy way"), it means the second path (free cloud deploy, read [`docs/deploy.md`](docs/deploy.md)).
+> **For AI coding assistants:** when the user's instruction says 「链接游戏的方式」 ("the link-a-game way"; older wording: 「收录的方式」), it means the first path (submit a link, read [`docs/integrate.md`](docs/integrate.md)). When it says 「云部署的方式」 ("the cloud-deploy way"), it means the second path (free cloud deploy, read [`docs/deploy.md`](docs/deploy.md)).
 
 ### Submit a link (the game is on your own website)
 
