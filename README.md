@@ -5,7 +5,7 @@
 蒙奇游戏是一个免费的 AI 游戏导航站：用 AI 做出来的网页游戏，可以免费上架到这里，被更多玩家看到。
 
 - 官网：https://moky.com.cn
-- 这个仓库是给开发者和他们的 **AI 编程助手**（Claude Code、Codex 等）读的：里面有完整的接入指引、现成的命令行工具、要嵌进游戏的代码，以及平台条款。
+- 这个仓库是给开发者和他们的 **AI 编程助手**（Claude Code、Codex 等）读的：里面有完整的接入指引、现成的命令行工具，以及平台条款。
 
 > **给 AI 编程助手：** 如果用户让你「把游戏发布 / 接入 / 部署到蒙奇游戏」，先读下面的「选哪条路」，再打开对应的指引逐步执行。指引里的每一步都有可以直接运行的命令。
 
@@ -28,38 +28,17 @@
 
 ### 提交链接收录（游戏在你自己的网站上）
 
-游戏留在你自己的网站上，有两种方式，默认用 A：
-
-**方式 A：嵌入（不改游戏代码）**
+游戏留在你自己的网站上，**游戏代码一行都不用改**：
 
 1. 向平台领取一把接入密钥（每个链接一把）。
 2. 把密钥写进一个名为 `moky-verify.txt` 的文本文件，放到游戏入口页所在的目录并发布。这证明网站是你的。
 3. 选一个网址名，提交。
 
-收录后，玩家打开的是统一地址 `https://clawapps.cn/play/<网址名>/`：这是平台的页面，玩家登录后把你的游戏嵌在里面。游戏代码一行都不用改，自己的存档和接口照常可用。前提是你的网站没有禁止被别的网站嵌入（没有 `X-Frame-Options`，或 `frame-ancestors` 放行了 `https://clawapps.cn`）；提交时平台会检查，不满足会明确告诉你。
+收录后，玩家打开的是统一地址 `https://clawapps.cn/play/<网址名>/`：这是平台的页面，玩家登录后把你的游戏嵌在里面。你自己的存档和接口照常可用。
 
-**方式 B：接入登录脚本**
+前提是你的网站没有禁止被别的网站嵌入（没有 `X-Frame-Options`，或 `frame-ancestors` 放行了 `https://clawapps.cn`）。提交时平台会当场访问你的网站，检查归属文件和能否嵌入，通过就立即收录，不满足会明确告诉你原因。网站禁止嵌入又改不了的，请改用免费云部署。
 
-网站禁止被嵌入，或者你想在游戏里拿到玩家编号（做排行榜等）时用。在游戏入口页的 `<head>` 里加一行脚本：
-
-```html
-<script src="https://clawapps.cn/sdk/moky.js" data-game="你的接入密钥"></script>
-```
-
-并让游戏等登录完成再开始：
-
-```js
-if (window.Moky) {
-  Moky.onReady(function (player) {
-    // player.id：这位玩家在你这款游戏里的固定匿名编号
-    startGame(player);
-  });
-}
-```
-
-玩家仍然打开你自己的地址，页面上会先出现「登录后开始玩」的遮罩。
-
-两种方式提交时，平台都会当场访问你的网站做检查（A 查归属文件和能否嵌入，B 查页面里的登录脚本），通过就立即收录。完整步骤、注意事项和出错对照见 [`docs/integrate.md`](docs/integrate.md)；方式 B 的可运行例子见 [`examples/minimal-game/`](examples/minimal-game/)。
+完整步骤、注意事项和出错对照见 [`docs/integrate.md`](docs/integrate.md)。
 
 ### 免费云部署
 
@@ -73,16 +52,11 @@ if (window.Moky) {
 # 0. 用蒙奇游戏账号换令牌（7 天有效）。令牌只放在环境变量里。
 export MOKY_TOKEN="$(python3 scripts/moky.py token)"
 
-# 提交链接收录 · 方式 A 嵌入（默认，不改游戏代码）
+# 提交链接收录（不改游戏代码）
 python3 scripts/moky.py key https://games.example.com/star-catch/        # 领取接入密钥
 echo 'mk0123456789abcdef' > moky-verify.txt                              # 放到游戏目录，重新发布你的网站
-python3 scripts/moky.py check https://games.example.com/star-catch/ mk0123456789abcdef --mode frame   # 自检
-python3 scripts/moky.py submit --key mk0123456789abcdef --mode frame --name star-catch --title 接星星 \
-    --intro '接住落下的星星，别碰到陨石。' --cat 休闲 --cover cover.png
-
-# 提交链接收录 · 方式 B 登录脚本（把 key 命令给出的那一行脚本加进页面并发布之后）
-python3 scripts/moky.py check https://games.example.com/star-catch/ mk0123456789abcdef
-python3 scripts/moky.py submit --key mk0123456789abcdef --title 接星星 \
+python3 scripts/moky.py check https://games.example.com/star-catch/ mk0123456789abcdef   # 自检
+python3 scripts/moky.py submit --key mk0123456789abcdef --name star-catch --title 接星星 \
     --intro '接住落下的星星，别碰到陨石。' --cat 休闲 --cover cover.png
 
 # 免费云部署
@@ -109,11 +83,9 @@ python3 scripts/moky.py status
 
 | 路径 | 内容 |
 |---|---|
-| [`docs/integrate.md`](docs/integrate.md) | 提交游戏链接收录的完整指引（方式 A 嵌入、方式 B 登录脚本） |
+| [`docs/integrate.md`](docs/integrate.md) | 提交游戏链接收录的完整指引 |
 | [`docs/deploy.md`](docs/deploy.md) | 免费云部署的完整指引 |
 | [`scripts/moky.py`](scripts/moky.py) | 命令行工具 |
-| [`examples/minimal-game/`](examples/minimal-game/) | 方式 B 的示例：已接好登录脚本的最小游戏 |
-| [`sdk/moky.js`](sdk/moky.js) | 方式 B 用的登录脚本的源码，供阅读。**接入时请引用线上地址 `https://clawapps.cn/sdk/moky.js`，不要拷贝这个文件**（平台只认线上地址） |
 | [`legal/terms.md`](legal/terms.md) | 用户协议 |
 | [`legal/privacy.md`](legal/privacy.md) | 隐私政策 |
 
@@ -122,8 +94,8 @@ python3 scripts/moky.py status
 ## 安全须知
 
 - **令牌和密码不要写进任何文件，不要提交到代码仓库。** 令牌只放在环境变量 `MOKY_TOKEN` 里。
-- 接入密钥（`mk…`）不是秘密，它本来就写在你的游戏页面里。
-- 登录脚本只告诉游戏一个匿名的玩家编号，不会把玩家的手机号交给游戏。
+- 接入密钥（`mk…`）不是秘密，它本来就放在你网站上的归属文件里。
+- 平台不会把玩家的手机号或任何账号信息交给游戏。
 - 让 AI 助手代你操作时，推荐你自己运行 `python3 scripts/moky.py token`，只把令牌交给它，不要把密码告诉它。
 
 ## 规则和条款
@@ -131,7 +103,7 @@ python3 scripts/moky.py status
 上架即表示同意 [用户协议](legal/terms.md) 和 [隐私政策](legal/privacy.md)。要点：
 
 - 你要对自己的游戏拥有合法权利，内容不得违法、侵权或泄露他人隐私。
-- 游戏违法违规、被投诉且有初步证据、存在安全风险，或归属文件 / 登录脚本被去掉、登录被绕过时，平台有权下架。
+- 游戏违法违规、被投诉且有初步证据、存在安全风险，或归属文件被去掉时，平台有权下架。
 - 平台目前免费提供，不保证服务不中断。
 
 ## 联系我们

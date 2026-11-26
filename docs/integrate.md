@@ -2,23 +2,13 @@
 
 你正在帮用户把一款**已经放在他自己网站上的网页游戏**收录到蒙奇游戏（clawapps.cn）。收录后：
 
-- 游戏得到一个统一的地址 `https://clawapps.cn/play/<网址名>/`（方式 A），或者继续用它自己的地址（方式 B）；
+- 游戏得到一个统一的地址 `https://clawapps.cn/play/<网址名>/`：这是平台的页面，玩家登录后把游戏嵌在里面。**游戏代码一行都不用改**，你只需要在游戏网站上放一个小文本文件；
 - 玩家用蒙奇游戏账号登录后才能玩，平台由此统计有多少位玩家玩过；
 - 游戏先是私有状态，有 20 位玩家玩过之后，出现在蒙奇游戏首页的「新品」里。
 
 如果用户没有自己的网站、只是想把游戏文件交给平台托管，请改看另一份文档：https://clawapps.cn/deploy.md 。几条路选一条即可：同一款游戏做多次，平台上会出现多条互不相干的记录，玩家数分开算。
 
-## 两种方式，先选一种
-
-| | 方式 A：嵌入（默认，不改游戏代码） | 方式 B：接入登录脚本 |
-|---|---|---|
-| 你要做的 | 在游戏网站上放一个小文本文件 | 在游戏页面里加一行脚本，并让游戏等登录完成再开始 |
-| 玩家打开的地址 | `https://clawapps.cn/play/<网址名>/`，平台的页面把游戏嵌在里面 | 游戏自己的地址 |
-| 登录在哪拦 | 平台的页面上 | 游戏页面里的登录遮罩 |
-| 游戏能拿到玩家编号吗 | 不能 | 能（`player.id`，可做排行榜等） |
-| 什么时候不能用 | 游戏网站禁止被别的网站嵌入时（见 3A.2） | 都能用 |
-
-**默认用方式 A。** 只有在方式 A 的检查通不过，或者用户明确想在游戏里用玩家编号时，才用方式 B。
+前提：游戏网站没有禁止被别的网站嵌入（第 3.2 节会检查）。如果禁止且改不了，这款游戏不能用这种方式收录，请改用免费云部署（上面那份文档）。
 
 请按顺序执行，每一步完成后再做下一步。
 
@@ -73,16 +63,16 @@ curl -sS -X POST 'https://clawapps.cn/api/sites/key' \
 
 ```json
 {"ok":true,"key":"mk0123456789abcdef","url":"https://games.example.com/star-catch/",
- "snippet":"<script src=\"https://clawapps.cn/sdk/moky.js\" data-game=\"mk0123456789abcdef\"></script>"}
+ "proof_url":"https://games.example.com/star-catch/moky-verify.txt"}
 ```
 
 - `key` 是这个账号、这个链接专用的接入密钥，同一个链接再领一次还是同一把。密钥不是秘密。
 - `url` 是平台整理后的地址，后面以它为准。
-- `snippet` 只有方式 B 用得到。
+- `proof_url` 是下一步那个归属文件应该能被访问到的地址。
 
-## 3A. 方式 A：嵌入（不改游戏代码）
+## 3. 放归属文件并自检
 
-### 3A.1 放一个归属文件
+### 3.1 放一个归属文件
 
 在游戏入口页**所在的目录**下放一个名为 `moky-verify.txt` 的文本文件，内容就是第 2 节领到的密钥（一行）：
 
@@ -94,7 +84,7 @@ echo 'mk0123456789abcdef' > moky-verify.txt   # 放在和游戏的 index.html �
 
 这个文件用来证明网站是用户自己的。它不影响游戏，上架后也请一直留着。用构建工具的项目，把它放进会原样拷贝到产物里的目录（例如 Vite 的 `public/`）。
 
-### 3A.2 自检
+### 3.2 自检
 
 ```bash
 # 归属文件能访问，内容是密钥
@@ -104,84 +94,16 @@ curl -sSL 'https://games.example.com/star-catch/moky-verify.txt'
 curl -sSL -o /dev/null -D - 'https://games.example.com/star-catch/' | grep -iE '^(x-frame-options|content-security-policy):' || true
 ```
 
-第二条命令**没有输出最好**（没有匹配时 `grep` 的退出码是 1，属于正常，所以后面加了 `|| true`）。有跳转时会打印每一跳的响应头，以最后一跳为准。如果输出里有 `X-Frame-Options: DENY` / `SAMEORIGIN`，或者 `Content-Security-Policy` 里有 `frame-ancestors` 且没有放行 `https://clawapps.cn`，说明网站禁止被嵌入，方式 A 会被拒绝（`not_embeddable`）。这时二选一：
+第二条命令**没有输出最好**（没有匹配时 `grep` 的退出码是 1，属于正常，所以后面加了 `|| true`）。有跳转时会打印每一跳的响应头，以最后一跳为准。如果输出里有 `X-Frame-Options: DENY` / `SAMEORIGIN`，或者 `Content-Security-Policy` 里有 `frame-ancestors` 且没有放行 `https://clawapps.cn`，说明网站禁止被嵌入，提交会被拒绝（`not_embeddable`）。这时二选一：
 
-- 用户能改网站的响应头：去掉 `X-Frame-Options`，或者把 `frame-ancestors` 改成包含 `https://clawapps.cn`，然后继续方式 A；
-- 改不了：换用方式 B（跳到 3B）。
+- 用户能改网站的响应头：去掉 `X-Frame-Options`，或者把 `frame-ancestors` 改成包含 `https://clawapps.cn`，然后继续；
+- 改不了：告诉用户这款游戏不能用提交链接的方式收录，可以改用免费云部署（https://clawapps.cn/deploy.md）。
 
 游戏在嵌入环境里运行时：自己的本地存档、自己域名下的接口都照常可用；不能把整个浏览器页面跳转到别处（`top.location`）；全屏、手柄、陀螺仪可以用。
 
-### 3A.3 选一个网址名
+### 3.3 选一个网址名
 
 网址名 `name`：小写字母开头，总长度 3–31 位，只含小写字母、数字、连字符。游戏的统一地址就是 `https://clawapps.cn/play/<name>/`。用户没指定时，用项目名或游戏英文名拟一个。
-
-做完 3A 直接跳到第 4 节。
-
-## 3B. 方式 B：接入登录脚本
-
-### 3.1 加一行脚本
-
-把 `snippet` 原样放进游戏入口页（第 1 节那个地址返回的 HTML）的 `<head>` 里，或者放在游戏自己的脚本**之前**：
-
-```html
-<script src="https://clawapps.cn/sdk/moky.js" data-game="mk0123456789abcdef"></script>
-```
-
-必须满足，否则第 5 节的提交检查通不过：
-
-- 这一行要**直接写在入口页的 HTML 源码里**。平台检查时只读 HTML 源码，不执行脚本，所以用 JS 动态插入的不算。用构建工具的，把它写进 `index.html` 模板。
-- `src` 必须是 `https://clawapps.cn/sdk/moky.js`，不要下载到本地、不要改名、不要打包进自己的脚本。
-- `data-game` 必须是第 2 节领到的那把密钥。
-- 不要加 `type="module"`。可以不加 `async` / `defer`。
-
-### 3.2 等登录完成再开始游戏
-
-脚本加载后提供一个全局对象 `Moky`。玩家没登录时，脚本会自动盖一层「登录后开始玩」的遮罩，玩家点「登录蒙奇游戏」去登录，登录后自动回到游戏页，遮罩消失。
-
-你要做的是：**让游戏在 `Moky.onReady` 之后才能开始**。两种常见情况：
-
-- 页面一加载就开始的游戏：把原来的启动调用挪进 `Moky.onReady`。
-- 有「开始」按钮的游戏：按钮先禁用，在 `Moky.onReady` 里再启用。
-
-```js
-// 原来：startGame();
-Moky.onReady(function (player) {
-  // player.id：这位玩家在你这款游戏里的固定编号（20 位字符，匿名，不是手机号）。
-  // 同一个人每次来都是同一个 id，可以用来区分玩家、存排行榜等。
-  startGame(player);
-});
-```
-
-如果登录脚本没加载成功（被网络拦截、超时），`Moky` 不存在，直接调用会报错。请先判断，并给玩家一句提示，不要让页面静悄悄地卡住：
-
-```js
-if (window.Moky) {
-  Moky.onReady(function (player) { startGame(player); });
-} else {
-  showMessage('登录组件没有加载成功，请刷新页面重试。');   // 用你游戏里现成的提示方式
-}
-```
-
-说明：
-
-- 加载顺序：按 3.1 把脚本放在 `<head>` 里（不加 `async` / `defer`），它会在页面其他脚本之前执行完，所以后面的脚本——包括带 `defer`、`async` 或 `type="module"` 的——运行时 `Moky` 都已经可用。
-- `Moky.onReady(fn)`：登录完成后调用 `fn(player)`；如果已经登录过，立刻调用。可以注册多次。
-- `Moky.ready`（布尔）、`Moky.player`（`{id}` 或 `null`）：随时读当前状态。
-- 也可以监听事件：`window.addEventListener('moky:ready', function (e) { e.detail.id })`。
-- 登录一次后在这个浏览器标签页里 12 小时内刷新不用再登。
-- 遮罩是全屏的，会挡住玩家的点击和触摸，但挡不住键盘操作、自动开始的计时和背景音乐，所以游戏逻辑仍然要等 `onReady` 才启动。这是上架的要求：不要自己隐藏或删除遮罩，不要在 `onReady` 之前让游戏可玩。玩家数只统计通过这个登录进来的人，绕过去的不计数，游戏就上不了首页；平台复查发现被绕过，可以下架。
-- 游戏页的地址在登录回来时会短暂带上 `#moky_ticket=…`，脚本会自己处理并从地址栏去掉。如果你的游戏用 `location.hash` 做路由，请忽略以 `moky_ticket=` 开头的 hash。
-- 本地预览（localhost 等不是登记地址的页面）时遮罩照常出现，但点登录会被拒绝（地址和登记的不一致），这是正常的；真实效果要发布到登记的地址上看。
-
-### 3.3 发布并自检
-
-按用户项目自己的方式重新发布游戏，然后确认线上页面已经带上脚本和密钥：
-
-```bash
-curl -sSL 'https://games.example.com/star-catch/' | grep -o '<script[^>]*clawapps.cn/sdk/moky.js[^>]*>'
-```
-
-应该输出那一行脚本的开头标签，且 `data-game` 是你的密钥。如果你有浏览器，再打开页面确认出现了「登录后开始玩」的遮罩；没有浏览器就如实告诉用户「没有在浏览器里实际看过」。
 
 ## 4. 准备游戏信息和封面
 
@@ -205,26 +127,13 @@ curl -sS -X POST 'https://clawapps.cn/api/games/cover' \
 
 ## 5. 提交
 
-方式 A（嵌入）——带上 `"mode":"frame"` 和网址名：
-
 ```bash
 curl -sS -X POST 'https://clawapps.cn/api/sites/submit' \
   -H "Authorization: Bearer $MOKY_TOKEN" -H 'Content-Type: application/json' \
-  -d '{"key":"mk0123456789abcdef","mode":"frame","name":"star-catch","title":"接星星","intro":"接住落下的星星，别碰到陨石。","cat":"休闲","cover":"<封面凭证>"}'
+  -d '{"key":"mk0123456789abcdef","name":"star-catch","title":"接星星","intro":"接住落下的星星，别碰到陨石。","cat":"休闲","cover":"<封面凭证>"}'
 ```
 
-方式 B（登录脚本）——不带 `mode` 和 `name`：
-
-```bash
-curl -sS -X POST 'https://clawapps.cn/api/sites/submit' \
-  -H "Authorization: Bearer $MOKY_TOKEN" -H 'Content-Type: application/json' \
-  -d '{"key":"mk0123456789abcdef","title":"接星星","intro":"接住落下的星星，别碰到陨石。","cat":"休闲","cover":"<封面凭证>"}'
-```
-
-请求体是 JSON，中文直接写即可（UTF-8）。提交时平台会**当场去访问用户的网站**做检查：
-
-- 方式 A：归属文件在不在、内容是不是这把密钥；游戏页面是否允许被嵌入。
-- 方式 B：页面的 HTML 源码里有没有带着这把密钥的登录脚本。
+请求体是 JSON，中文直接写即可（UTF-8）。提交时平台会**当场去访问用户的网站**做检查：归属文件在不在、内容是不是这把密钥；游戏页面是否允许被嵌入。
 
 通过就立即收录，不通过会告诉你原因。「收录」之后先是私有状态（不在首页展示），见第 8 节。
 
@@ -236,11 +145,11 @@ curl -sS -X POST 'https://clawapps.cn/api/sites/submit' \
 {"ok":true,"name":"star-catch","status":"live","url":"https://clawapps.cn/play/star-catch/","public_min":20}
 ```
 
-- `name`：这款游戏在平台上的名字（查询、删除时用）。方式 A 是你选的网址名，方式 B 是平台生成的 `x-…`。
-- `url`：给玩家的地址。方式 A 是平台的统一地址，方式 B 是游戏自己的地址。
+- `name`：这款游戏在平台上的名字，就是你选的网址名（查询、删除时用）。
+- `url`：给玩家的统一地址。
 - `status` 为 `live` 表示已收录（此时还是私有的，没有公开展示）；`public_min` 是进首页需要的玩家数。
 
-以后要改名称、介绍、分类或封面：用同一个 `key` 和同样的方式再提交一次（不换封面可以不带 `cover`）。平台每次都会重新检查。
+以后要改名称、介绍、分类或封面：用同一个 `key` 和同一个 `name` 再提交一次（不换封面可以不带 `cover`）。平台每次都会重新检查。
 
 ## 6. 查看状态和玩家数
 
@@ -248,9 +157,9 @@ curl -sS -X POST 'https://clawapps.cn/api/sites/submit' \
 curl -sS 'https://clawapps.cn/api/games/mine' -H "Authorization: Bearer $MOKY_TOKEN"
 ```
 
-返回 `{"games":[…]}`，按 `name` 找到这一款：`status` 为 `live` 表示已收录，`players` 是玩过的人数，`public` 为 `true` 表示已经在首页展示，`kind` 为 `frame` 表示方式 A、`link` 表示方式 B、`deploy` 表示云部署的游戏。其余字段：`title`、`intro`、`cat` 是提交的信息；`cover`、`cw`、`ch` 是封面地址和宽高；`updated` 是更新时间；`public_min` 是进首页需要的玩家数；`error` 没有错误时是 `null`；`slow` 只对云部署有意义（排队超过 10 分钟为 `true`）；`version`、`files`、`bytes` 只对云部署的游戏有值，这里是 `null`。
+返回 `{"games":[…]}`，按 `name` 找到这一款：`status` 为 `live` 表示已收录，`players` 是玩过的人数，`public` 为 `true` 表示已经在首页展示，`kind` 为 `frame` 表示通过链接收录的游戏、`deploy` 表示云部署的游戏。其余字段：`title`、`intro`、`cat` 是提交的信息；`cover`、`cw`、`ch` 是封面地址和宽高；`updated` 是更新时间；`public_min` 是进首页需要的玩家数；`error` 没有错误时是 `null`；`slow` 只对云部署有意义（排队超过 10 分钟为 `true`）；`version`、`files`、`bytes` 只对云部署的游戏有值，这里是 `null`。
 
-方式 A 没有浏览器时的最小验证：不登录直接请求统一地址，应当得到 HTTP 302，跳到 `https://clawapps.cn/?login=1&next=/play/<网址名>/`，这说明外壳页已经生效、登录拦截在起作用。
+没有浏览器时的最小验证：不登录直接请求统一地址，应当得到 HTTP 302，跳到 `https://clawapps.cn/?login=1&next=/play/<网址名>/`，这说明外壳页已经生效、登录拦截在起作用。
 
 ## 7. 出错时怎么办
 
@@ -260,12 +169,10 @@ curl -sS 'https://clawapps.cn/api/games/mine' -H "Authorization: Bearer $MOKY_TO
 | `bad_url` | 游戏链接不合要求 | 按第 1 节检查 |
 | `url_taken` | 这个链接已经被别的账号收录了 | 请用户确认链接；确实是他的就联系平台 |
 | `key_not_found` | 密钥不存在，或不是这个账号的 | 用这个账号重新走第 2 节 |
-| `proof_missing`（返回里带 `proof_url`） | 方式 A：归属文件取不到 | 确认 `proof_url` 这个地址能打开；回到 3A.1 |
-| `proof_mismatch` | 方式 A：归属文件里不是这把密钥 | 把文件内容换成第 2 节领到的密钥后重新发布 |
-| `not_embeddable`（`x_frame_options` / `frame_ancestors`） | 方式 A：游戏网站禁止被嵌入 | 按 3A.2 改响应头，或换用方式 B |
-| `bad_name` / `name_reserved` / `name_taken` | 方式 A：网址名不合格式、是保留名、或已被占用 | 换一个网址名 |
-| `snippet_missing` | 方式 B：页面源码里没有找到登录脚本 | 回到 3B；注意必须写在 HTML 源码里 |
-| `snippet_no_key` / `key_mismatch` | 方式 B：脚本上没有密钥，或不是你这把 | 换成第 2 节领到的密钥后重新发布 |
+| `proof_missing`（返回里带 `proof_url`） | 归属文件取不到 | 确认 `proof_url` 这个地址能打开；回到 3.1 |
+| `proof_mismatch` | 归属文件里不是这把密钥 | 把文件内容换成第 2 节领到的密钥后重新发布 |
+| `not_embeddable`（`x_frame_options` / `frame_ancestors`） | 游戏网站禁止被嵌入 | 按 3.2 改响应头；改不了就改用免费云部署 |
+| `bad_name` / `name_reserved` / `name_taken` | 网址名不合格式、是保留名、或已被占用 | 换一个网址名 |
 | `fetch_failed`（`dns_failed`） | 域名解析不到 | 检查域名 |
 | `fetch_failed` / `proof_missing`（`unreachable` / `tls_failed`） | 连不上，或 HTTPS 证书有问题 | 确认网站在公网能打开、证书有效 |
 | `fetch_failed` / `proof_missing`（`http_404` 等 `http_状态码`） | 返回的不是 200 | 确认地址正确、已经发布 |
@@ -280,8 +187,8 @@ curl -sS 'https://clawapps.cn/api/games/mine' -H "Authorization: Bearer $MOKY_TO
 1. 游戏已经收录，现在是**私有状态**：不在首页展示。把第 5 节返回的 `url` 发给朋友就能玩；玩家第一次打开要用蒙奇游戏账号登录。
 2. 有 20 位玩家玩过之后（开发者自己玩不计入），游戏会出现在蒙奇游戏首页的「新品」里。
 3. 在 https://moky.com.cn 右上角的「个人中心」可以看到这款游戏、玩家数、分享二维码，也可以删除。
-4. 方式 A：归属文件 `moky-verify.txt` 要一直留在网站上；游戏内容仍在用户自己的网站上，他更新网站，平台上的游戏随之更新。方式 B：登录脚本必须一直留在页面里。去掉之后，平台复查时可以把游戏下架。
-5. 你用的是哪种方式、游戏名称、介绍、分类，以及这次有没有在浏览器里实际验证过。
+4. 归属文件 `moky-verify.txt` 要一直留在网站上，去掉之后平台复查时可以把游戏下架。游戏内容仍在用户自己的网站上，他更新网站，平台上的游戏随之更新。
+5. 你用的游戏名称、网址名、介绍、分类，以及这次有没有在浏览器里实际验证过。
 
 从平台撤下游戏（不会动用户网站上的文件；执行前必须得到用户明确同意）：
 
