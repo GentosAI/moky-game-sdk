@@ -44,7 +44,7 @@ curl -sS -X POST 'https://clawapps.cn/api/auth/token' \
 export MOKY_TOKEN='clt_…'
 ```
 
-- 手机号和密码请向用户要，或者请用户自己运行上面这条命令、只把返回的令牌给你（推荐：用户在你运行命令的同一个终端里先执行 `export MOKY_TOKEN=…`；如果用户给的是一个存着令牌的文件，只把它读进环境变量，不要复制、不要改动）。
+- 手机号和密码请向用户要，或者请用户自己运行上面这条命令、只把返回的令牌给你（推荐：用户在你运行命令的同一个终端里先执行 `export MOKY_TOKEN=…`；如果用户给的是一个存着令牌的文件，用 `export MOKY_TOKEN="$(cat 文件路径)"` 读进环境变量，不要复制、不要改动。如果你的每条命令是在新的 shell 里运行的，环境变量不会保留，每次都要重新读一遍）。
 - 密码和令牌都不要写进任何文件、不要提交到代码仓库、不要打印到日志里。
 - 返回 `bad_login`：手机号或密码不对，或者这个号还没注册。返回 `too_many`：尝试太多次，等 15 分钟再试。
 
@@ -90,7 +90,7 @@ curl -sS -X POST 'https://clawapps.cn/api/sites/key' \
 echo 'mk0123456789abcdef' > moky-verify.txt   # 放在和游戏的 index.html 同一个目录
 ```
 
-然后按用户项目自己的方式重新发布，让它能通过网址访问。文件的地址是「游戏地址所在目录 + `moky-verify.txt`」，例如游戏地址是 `https://games.example.com/star-catch/`，文件就是 `https://games.example.com/star-catch/moky-verify.txt`；游戏地址是 `https://games.example.com/play.html`，文件就是 `https://games.example.com/moky-verify.txt`。
+文件里只要有这一行密钥即可，结尾的换行、Windows 换行都没关系。然后按用户项目自己的方式重新发布，让它能通过网址访问。文件的地址是「游戏地址所在目录 + `moky-verify.txt`」，例如游戏地址是 `https://games.example.com/star-catch/`，文件就是 `https://games.example.com/star-catch/moky-verify.txt`；游戏地址是 `https://games.example.com/play.html`，文件就是 `https://games.example.com/moky-verify.txt`。
 
 这个文件用来证明网站是用户自己的。它不影响游戏，上架后也请一直留着。用构建工具的项目，把它放进会原样拷贝到产物里的目录（例如 Vite 的 `public/`）。
 
@@ -100,11 +100,11 @@ echo 'mk0123456789abcdef' > moky-verify.txt   # 放在和游戏的 index.html �
 # 归属文件能访问，内容是密钥
 curl -sSL 'https://games.example.com/star-catch/moky-verify.txt'
 
-# 游戏页面没有禁止被嵌入
-curl -sSIL 'https://games.example.com/star-catch/' | grep -iE '^(x-frame-options|content-security-policy):'
+# 游戏页面没有禁止被嵌入（用 GET 取响应头，只看最后一次响应）
+curl -sSL -o /dev/null -D - 'https://games.example.com/star-catch/' | grep -iE '^(x-frame-options|content-security-policy):' || true
 ```
 
-第二条命令**没有输出最好**。如果输出里有 `X-Frame-Options: DENY` / `SAMEORIGIN`，或者 `Content-Security-Policy` 里有 `frame-ancestors` 且没有放行 `https://clawapps.cn`，说明网站禁止被嵌入，方式 A 会被拒绝（`not_embeddable`）。这时二选一：
+第二条命令**没有输出最好**（没有匹配时 `grep` 的退出码是 1，属于正常，所以后面加了 `|| true`）。有跳转时会打印每一跳的响应头，以最后一跳为准。如果输出里有 `X-Frame-Options: DENY` / `SAMEORIGIN`，或者 `Content-Security-Policy` 里有 `frame-ancestors` 且没有放行 `https://clawapps.cn`，说明网站禁止被嵌入，方式 A 会被拒绝（`not_embeddable`）。这时二选一：
 
 - 用户能改网站的响应头：去掉 `X-Frame-Options`，或者把 `frame-ancestors` 改成包含 `https://clawapps.cn`，然后继续方式 A；
 - 改不了：换用方式 B（跳到 3B）。
@@ -113,7 +113,7 @@ curl -sSIL 'https://games.example.com/star-catch/' | grep -iE '^(x-frame-options
 
 ### 3A.3 选一个网址名
 
-网址名 `name`：小写字母开头，3–31 位，只含小写字母、数字、连字符。游戏的统一地址就是 `https://clawapps.cn/play/<name>/`。用户没指定时，用项目名或游戏英文名拟一个。
+网址名 `name`：小写字母开头，总长度 3–31 位，只含小写字母、数字、连字符。游戏的统一地址就是 `https://clawapps.cn/play/<name>/`。用户没指定时，用项目名或游戏英文名拟一个。
 
 做完 3A 直接跳到第 4 节。
 
@@ -228,6 +228,8 @@ curl -sS -X POST 'https://clawapps.cn/api/sites/submit' \
 
 通过就立即收录，不通过会告诉你原因。「收录」之后先是私有状态（不在首页展示），见第 8 节。
 
+提交前建议先按第 6 节看一眼账号下已有的游戏：每个账号最多 5 款；游戏名称允许重复，但同一款游戏不要重复收录。请求体里有引号等特殊字符时，可以把 JSON 写进临时文件再用 `-d @文件` 发送（文件里不要有令牌，用完删掉）。
+
 成功返回：
 
 ```json
@@ -246,7 +248,9 @@ curl -sS -X POST 'https://clawapps.cn/api/sites/submit' \
 curl -sS 'https://clawapps.cn/api/games/mine' -H "Authorization: Bearer $MOKY_TOKEN"
 ```
 
-返回 `{"games":[…]}`，按 `name` 找到这一款：`status` 为 `live` 表示已收录，`players` 是玩过的人数，`public` 为 `true` 表示已经在首页展示，`kind` 为 `frame` 表示方式 A、`link` 表示方式 B。返回里还有封面（`cover`、`cw`、`ch`）、更新时间（`updated`）等字段；`version`、`files`、`bytes` 只对云部署的游戏有值，这里是 `null`。
+返回 `{"games":[…]}`，按 `name` 找到这一款：`status` 为 `live` 表示已收录，`players` 是玩过的人数，`public` 为 `true` 表示已经在首页展示，`kind` 为 `frame` 表示方式 A、`link` 表示方式 B、`deploy` 表示云部署的游戏。其余字段：`title`、`intro`、`cat` 是提交的信息；`cover`、`cw`、`ch` 是封面地址和宽高；`updated` 是更新时间；`public_min` 是进首页需要的玩家数；`error` 没有错误时是 `null`；`slow` 只对云部署有意义（排队超过 10 分钟为 `true`）；`version`、`files`、`bytes` 只对云部署的游戏有值，这里是 `null`。
+
+方式 A 没有浏览器时的最小验证：不登录直接请求统一地址，应当得到 HTTP 302，跳到 `https://clawapps.cn/?login=1&next=/play/<网址名>/`，这说明外壳页已经生效、登录拦截在起作用。
 
 ## 7. 出错时怎么办
 
