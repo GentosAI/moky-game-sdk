@@ -97,7 +97,7 @@ On submit the platform visits your site right away and checks the proof file and
 
 ## Path 2: free cloud deploy (the platform hosts the game files)
 
-Hand the built static files to the platform and get `https://clawapps.cn/play/<name>/`, usually within seconds. No website or server of your own is needed.
+Hand the built static files to the platform and get `https://clawapps.cn/play/<name>/`, usually within seconds (a package near the 100 MB limit can take about five minutes). No website or server of your own is needed.
 
 **Requirements**
 

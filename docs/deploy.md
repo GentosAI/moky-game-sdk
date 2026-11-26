@@ -115,7 +115,7 @@ curl -sS -X POST "https://clawapps.cn/api/games/upload?$QS" \
 
 ## 7. 等部署完成
 
-每 2–3 秒查一次，直到这款游戏的 `status` 不再是 `queued`。小包几秒钟就好，几十 MB 的大包要一两分钟；等满 5 分钟还是 `queued` 再告诉用户稍后到创作中心查看，不要提前判定失败，也不要重复提交：
+每 2–3 秒查一次，直到这款游戏的 `status` 不再是 `queued`。小包几秒钟就好，几十 MB 的大包可能要五分钟左右（实测 98 MB 约 4 分钟）；等满 10 分钟还是 `queued` 再告诉用户稍后到创作中心查看，不要提前判定失败，也不要重复提交：
 
 ```bash
 curl -sS 'https://clawapps.cn/api/games/mine' -H "Authorization: Bearer $MOKY_TOKEN"

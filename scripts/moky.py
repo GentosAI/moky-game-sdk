@@ -182,7 +182,7 @@ def cmd_deploy(a):
     need_ok(*call("/games/upload", data, "application/zip", query=q), "上传游戏包")
     print("已进入部署队列，等待上线…", file=sys.stderr)
     t0 = time.time()
-    while time.time() - t0 < 300:
+    while time.time() - t0 < 600:   # 大包（接近 100 MB）实测入队到上线约 4 分钟
         time.sleep(2.5)
         games = need_ok(*call("/games/mine"), "查询")["games"]
         g = next((x for x in games if x["name"] == a.name), None)
@@ -191,7 +191,7 @@ def cmd_deploy(a):
                 print(f"部署成功：{g['url']}\n现在是私有状态：玩家登录后才能玩；有 {g.get('public_min', 20)} 位玩家玩过之后会出现在首页的「新品」里。")
                 return
             die(("更新失败，线上仍是上一版：" if g["status"] == "live" else "部署失败：") + str(g.get("error")), 2)
-    die("等了 5 分钟还在排队。请稍后用 status 查看，不要重复提交。", 3)
+    die("等了 10 分钟还在排队。请稍后用 status 查看，不要重复提交。", 3)
 
 
 def cmd_remove(a):
